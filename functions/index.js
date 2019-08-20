@@ -80,6 +80,27 @@ exports.getDailyMessages = functions.pubsub
             .set(parsedDailyMessages);
     });
 
+exports.getDiningInfo = functions.pubsub
+  .schedule("30 0 * * 1-5") // fetch events daily messages at 12:30am
+  .timeZone("America/New_York")
+  .onRun(async () => {
+    const diningInfo = {};
+
+    Object.keys(id).forEach((diningIds)) {
+      const location = diningIds[id];
+      diningInfo[location] = (parseDining(getMeal(id));
+    }
+
+    const today = moment()
+      .tz("America/New_York")
+      .format("YYYY-MM-DD");
+    admin
+      .firestore()
+      .collection("diningMenus")
+      .doc(today)
+      .set(diningInfo);
+  });
+
 const parseEvents = async (events) => {
     const CategoryColors = await getCategoryColors();
     // Set keeps track of the first event of that day so we can render that event with a date header
@@ -141,6 +162,51 @@ const parseDailyMessages = async (dailyMessages) => {
     }
     return temp;
 };
+
+/**
+ * Given a menu id, retrives the json data regarding meals at the dining hall.
+ *
+ * @param {number}  id      menu id for the dining location.
+ *
+ */
+getMeal = async (id) => {
+  let response = await fetch(`${diningUrl}${id}`, {
+    method: "GET",
+    headers: {"Content-Type": "application/json"}
+  });
+  return await response.json();
+};
+
+/**
+ * Given a menu id, retrieves the json data regarding meals at the dining hall.
+ *
+ * @param {number}  arr         array containing course information for all meals at the current dining location.
+ * @param {string}  property    JSON property to group all elements in the data by.
+ *
+ */
+groupBy = (arr, property) => {
+  return arr.reduce((memo, x) => {
+    if (!memo[x[property]]) {
+      memo[x[property]] = [];
+    }
+    memo[x[property]].push(x);
+    return memo;
+  }, {});
+};
+
+/**
+ * Groups all the meal data by the dining location and course. Then adds the grouped information to the database.
+ *
+ * @param {number}  data    json data for the dining location's menu.
+ */
+parseDining = (data) => {
+  let meals = groupBy(data, "meal");
+  Object.keys(meals).forEach((meal) => {
+    meals[meal] = groupBy(meals[meal], "course");
+  }
+  return meals;
+};
+
 const cleanTime = (time) => {
     return time ? time.replace(/\s/g, "") : "";
 };
@@ -156,3 +222,17 @@ const convertToUnix = (time) => {
     const unix = moment(time + " " + TIME_ZONE, "YYYY-MM-DD h:mm a Z").valueOf();
     return unix;
 };
+
+// Menu ids for each dining location.
+const diningIds = {
+  208: 'Whitmans\'',
+  27: 'Driscoll',
+  29: 'Mission',
+  38: 'Eco Cafe',
+  209: 'Grab & Go',
+  25: '\'82 Grill',
+  24: 'Lee Snack Bar Calculator',
+  221: 'Whitmans\' Late Night Calculator',
+};
+
+const diningUrl = 'https://dining.williams.edu/wp-json/dining/service_units/';
