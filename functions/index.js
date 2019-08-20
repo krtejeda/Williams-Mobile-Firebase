@@ -85,20 +85,35 @@ exports.getDiningInfo = functions.pubsub
   .timeZone("America/New_York")
   .onRun(async () => {
     const diningInfo = {};
-
-    Object.keys(id).forEach((diningIds)) {
-      const location = diningIds[id];
-      diningInfo[location] = (parseDining(getMeal(id));
-    }
-
+    const promises = [];
     const today = moment()
       .tz("America/New_York")
       .format("YYYY-MM-DD");
-    admin
-      .firestore()
-      .collection("diningMenus")
-      .doc(today)
-      .set(diningInfo);
+
+    Object.keys(diningIds).forEach((id) => {
+      promises.push(getMeal(id));
+    });
+
+    await Promise.all(promises).then((values) => {
+      Object.keys(diningIds).forEach((id,i) => {
+        const location = diningIds[id];
+        const value = values[i];
+        diningInfo[location] = parseDining(value);
+      });
+      admin
+        .firestore()
+        .collection("diningMenus")
+        .doc(today)
+        .set(diningInfo);
+        return null;
+    }).catch((err) => {
+      diningInfo.error = err;
+      admin
+        .firestore()
+        .collection("diningMenus")
+        .doc(today)
+        .set(diningInfo);
+    })
   });
 
 const parseEvents = async (events) => {
@@ -163,28 +178,16 @@ const parseDailyMessages = async (dailyMessages) => {
     return temp;
 };
 
-/**
- * Given a menu id, retrives the json data regarding meals at the dining hall.
- *
- * @param {number}  id      menu id for the dining location.
- *
- */
-getMeal = async (id) => {
-  let response = await fetch(`${diningUrl}${id}`, {
+const getMeal = async (id) => {
+  return fetch(`${diningUrl}${id}`, {
     method: "GET",
     headers: {"Content-Type": "application/json"}
-  });
-  return await response.json();
+  })
+    .then((res) => res.json())
+    .then((json) => json);
 };
 
-/**
- * Given a menu id, retrieves the json data regarding meals at the dining hall.
- *
- * @param {number}  arr         array containing course information for all meals at the current dining location.
- * @param {string}  property    JSON property to group all elements in the data by.
- *
- */
-groupBy = (arr, property) => {
+const groupBy = (arr, property) => {
   return arr.reduce((memo, x) => {
     if (!memo[x[property]]) {
       memo[x[property]] = [];
@@ -194,15 +197,12 @@ groupBy = (arr, property) => {
   }, {});
 };
 
-/**
- * Groups all the meal data by the dining location and course. Then adds the grouped information to the database.
- *
- * @param {number}  data    json data for the dining location's menu.
- */
-parseDining = (data) => {
+const parseDining = (data) => {
   let meals = groupBy(data, "meal");
-  Object.keys(meals).forEach((meal) => {
-    meals[meal] = groupBy(meals[meal], "course");
+  for (let meal in meals) {
+    if (meals.hasOwnProperty(meal)) {
+      meals[meal] = groupBy(meals[meal], "course");
+    }
   }
   return meals;
 };
