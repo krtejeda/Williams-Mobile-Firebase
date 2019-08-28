@@ -199,16 +199,15 @@ const groupBy = (arr, property) => {
 
     // only allowing ['breakfast', 'brunch', 'lunch', 'dinner'] in the db
     // and 'snack bar' for whitmans'
-    if (property === 'meal' && meals.includes(x[property].toLowerCase())) {
-      // if the course is an empty string, change it to 'entrees'
-      if (property === 'course' && !x[property]) x[property] = 'Entrees';
+    if (property === 'meal' && !meals.includes(x[property].toLowerCase())) return memo;
+    // if the course is an empty string, change it to 'entrees'
+    if (property === 'course' && !x[property]) x[property] = 'Entrees';
 
-      if (!memo[x[property]]) {
-        memo[x[property]] = [];
-      }
-      memo[x[property]].push(x);
+    if (!memo[x[property]]) {
+      memo[x[property]] = [];
     }
-    return memo;
+    memo[x[property]].push(x);
+  return memo;
   }, {});
 };
 
