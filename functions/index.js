@@ -2,6 +2,7 @@ const functions = require("firebase-functions");
 const fetch = require("node-fetch");
 const moment = require("moment-timezone");
 const he = require("he");
+const merge = require("deepmerge");
 
 // The Firebase Admin SDK to access the Firebase Realtime Database.
 const admin = require("firebase-admin");
@@ -81,20 +82,26 @@ exports.getDailyMessages = functions.pubsub
     });
 
 exports.getDiningInfo = functions.pubsub
-  .schedule("30 0 * * 1-5") // fetch events daily messages at 12:30am
+  .schedule("30 0 * * *") // fetch events daily messages at 12:30am
   .timeZone("America/New_York")
   .onRun(async () => {
-    const diningInfo = {};
+    let diningInfo = {};
     const promises = [];
     const today = moment()
       .tz("America/New_York")
       .format("YYYY-MM-DD");
+    const snapshot = await admin
+      .firestore()
+      .collection("snackBar")
+      .doc('menus')
+      .get();
+    const snackBar = snapshot.data();
 
     Object.keys(diningIds).forEach((id) => {
       promises.push(getMeal(id));
     });
 
-    await Promise.all(promises).then((values) => {
+    Promise.all(promises).then((values) => {
       Object.keys(diningIds).forEach((id,i) => {
         const location = diningIds[id];
         const value = values[i];
@@ -104,7 +111,7 @@ exports.getDiningInfo = functions.pubsub
         .firestore()
         .collection("diningMenus")
         .doc(today)
-        .set(diningInfo);
+        .set(merge.all([diningInfo, snackBar]));
         return null;
     }).catch((err) => {
       diningInfo.error = err;
@@ -112,7 +119,7 @@ exports.getDiningInfo = functions.pubsub
         .firestore()
         .collection("diningMenus")
         .doc(today)
-        .set(diningInfo);
+        .set(merge.all([diningInfo, snackBar]));
     })
   });
 
@@ -189,10 +196,18 @@ const getMeal = async (id) => {
 
 const groupBy = (arr, property) => {
   return arr.reduce((memo, x) => {
-    if (!memo[x[property]]) {
-      memo[x[property]] = [];
+
+    // only allowing ['breakfast', 'brunch', 'lunch', 'dinner'] in the db
+    // and 'snack bar' for whitmans'
+    if (property === 'meal' && meals.includes(x[property].toLowerCase())) {
+      // if the course is an empty string, change it to 'entrees'
+      if (property === 'course' && !x[property]) x[property] = 'Entrees';
+
+      if (!memo[x[property]]) {
+        memo[x[property]] = [];
+      }
+      memo[x[property]].push(x);
     }
-    memo[x[property]].push(x);
     return memo;
   }, {});
 };
@@ -228,11 +243,13 @@ const diningIds = {
   208: 'Whitmans\'',
   27: 'Driscoll',
   29: 'Mission',
-  38: 'Eco Cafe',
-  209: 'Grab & Go',
+  // 38: 'Eco Cafe',
+  // 209: 'Grab & Go',
   25: '\'82 Grill',
-  24: 'Lee Snack Bar Calculator',
-  221: 'Whitmans\' Late Night Calculator',
+  24: 'Lee\'s',
+  // 221: 'Whitmans\' Late Night Calculator',
 };
+
+const meals = ['breakfast', 'brunch', 'lunch', 'dinner'];
 
 const diningUrl = 'https://dining.williams.edu/wp-json/dining/service_units/';
