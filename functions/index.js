@@ -2,6 +2,7 @@ const functions = require("firebase-functions");
 const fetch = require("node-fetch");
 const moment = require("moment-timezone");
 const he = require("he");
+const merge = require("deepmerge");
 
 // The Firebase Admin SDK to access the Firebase Realtime Database.
 const admin = require("firebase-admin");
@@ -80,6 +81,48 @@ exports.getDailyMessages = functions.pubsub
             .set(parsedDailyMessages);
     });
 
+exports.getDiningInfo = functions.pubsub
+  .schedule("30 0 * * *") // fetch events daily messages at 12:30am
+  .timeZone("America/New_York")
+  .onRun(async () => {
+    let diningInfo = {};
+    const promises = [];
+    const today = moment()
+      .tz("America/New_York")
+      .format("YYYY-MM-DD");
+    const snapshot = await admin
+      .firestore()
+      .collection("defaultMenus")
+      .doc('menus')
+      .get();
+    const defaultMenus = snapshot.data();
+
+    Object.keys(diningIds).forEach((id) => {
+      promises.push(getMeal(id));
+    });
+
+    Promise.all(promises).then((values) => {
+      Object.keys(diningIds).forEach((id,i) => {
+        const location = diningIds[id];
+        const value = values[i];
+        diningInfo[location] = parseDining(value);
+      });
+      admin
+        .firestore()
+        .collection("diningMenus")
+        .doc(today)
+        .set(merge.all([diningInfo, defaultMenus]));
+        return null;
+    }).catch((err) => {
+      diningInfo.error = err;
+      admin
+        .firestore()
+        .collection("diningMenus")
+        .doc(today)
+        .set(merge.all([diningInfo, defaultMenus]));
+    })
+  });
+
 const parseEvents = async (events) => {
     const CategoryColors = await getCategoryColors();
     // Set keeps track of the first event of that day so we can render that event with a date header
@@ -141,6 +184,43 @@ const parseDailyMessages = async (dailyMessages) => {
     }
     return temp;
 };
+
+const getMeal = async (id) => {
+  return fetch(`${diningUrl}${id}`, {
+    method: "GET",
+    headers: {"Content-Type": "application/json"}
+  })
+    .then((res) => res.json())
+    .then((json) => json);
+};
+
+const groupBy = (arr, property) => {
+  return arr.reduce((memo, x) => {
+
+    // only allowing ['breakfast', 'brunch', 'lunch', 'dinner'] in the db
+    // and 'snack bar' for whitmans'
+    if (property === 'meal' && !meals.includes(x[property].toLowerCase())) return memo;
+    // if the course is an empty string, change it to 'entrees'
+    if (property === 'course' && !x[property]) x[property] = 'Entrees';
+
+    if (!memo[x[property]]) {
+      memo[x[property]] = [];
+    }
+    memo[x[property]].push(x);
+  return memo;
+  }, {});
+};
+
+const parseDining = (data) => {
+  let meals = groupBy(data, "meal");
+  for (let meal in meals) {
+    if (meals.hasOwnProperty(meal)) {
+      meals[meal] = groupBy(meals[meal], "course");
+    }
+  }
+  return meals;
+};
+
 const cleanTime = (time) => {
     return time ? time.replace(/\s/g, "") : "";
 };
@@ -156,3 +236,19 @@ const convertToUnix = (time) => {
     const unix = moment(time + " " + TIME_ZONE, "YYYY-MM-DD h:mm a Z").valueOf();
     return unix;
 };
+
+// Menu ids for each dining location.
+const diningIds = {
+  208: 'Whitmans\'',
+  27: 'Driscoll',
+  29: 'Mission',
+  // 38: 'Eco Cafe',
+  // 209: 'Grab & Go',
+  25: '\'82 Grill',
+  24: 'Lee\'s',
+  // 221: 'Whitmans\' Late Night Calculator',
+};
+
+const meals = ['breakfast', 'brunch', 'lunch', 'dinner'];
+
+const diningUrl = 'https://dining.williams.edu/wp-json/dining/service_units/';
