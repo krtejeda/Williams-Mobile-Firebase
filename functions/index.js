@@ -92,10 +92,10 @@ exports.getDiningInfo = functions.pubsub
       .format("YYYY-MM-DD");
     const snapshot = await admin
       .firestore()
-      .collection("snackBar")
+      .collection("defaultMenus")
       .doc('menus')
       .get();
-    const snackBar = snapshot.data();
+    const defaultMenus = snapshot.data();
 
     Object.keys(diningIds).forEach((id) => {
       promises.push(getMeal(id));
@@ -111,7 +111,7 @@ exports.getDiningInfo = functions.pubsub
         .firestore()
         .collection("diningMenus")
         .doc(today)
-        .set(merge.all([diningInfo, snackBar]));
+        .set(merge.all([diningInfo, defaultMenus]));
         return null;
     }).catch((err) => {
       diningInfo.error = err;
@@ -119,7 +119,7 @@ exports.getDiningInfo = functions.pubsub
         .firestore()
         .collection("diningMenus")
         .doc(today)
-        .set(merge.all([diningInfo, snackBar]));
+        .set(merge.all([diningInfo, defaultMenus]));
     })
   });
 
