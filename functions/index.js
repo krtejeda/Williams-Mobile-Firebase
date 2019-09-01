@@ -9,7 +9,7 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 
 exports.getEvents = functions.pubsub
-  .schedule('05 0 * * *') // fetch events every day at 12:05am
+  .schedule('5 7-23/1 * * *') // fetch events at minute 5 past every hour from 7 through 23
   .timeZone('America/New_York')
   .onRun(async () => {
     let url = `https://events.williams.edu/wp-json/wms/events/v1/list?per_page=100`;
@@ -29,10 +29,8 @@ exports.getEvents = functions.pubsub
       .get();
 
     query.forEach((doc) => {
-      if (doc.id !== 'eventsSorted') {
-        let data = doc.data();
-        a.add(data.key);
-      }
+      let data = doc.data();
+      a.add(data.key);
     });
 
     // Collect recent event list
