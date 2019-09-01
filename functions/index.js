@@ -7,9 +7,6 @@ const he = require('he');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
-// How to deploy to Google Console
-// firebase deploy --only functions
-
 exports.getEvents = functions.pubsub
   .schedule('05 0 * * *') // fetch events every day at 12:05am
   .timeZone('America/New_York')
