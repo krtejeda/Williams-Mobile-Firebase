@@ -82,7 +82,7 @@ exports.getDailyMessages = functions.pubsub
     });
 
 exports.getDiningInfo = functions.pubsub
-  .schedule("30 1 * * *") // fetch events daily messages at 1:30am
+  .schedule("every 30 mins")
   .timeZone("America/New_York")
   .onRun(async () => {
     let diningInfo = {};
