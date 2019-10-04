@@ -145,7 +145,7 @@ const parseEvents = async (events) => {
                 firstEventToday: !dates.has(event.start_ts),
                 startTime: convertToUnix(event.start_ts + " " + event.time_formatted.split("-")[0]),
                 endTime: convertToUnix(event.start_ts + " " + event.time_formatted.split("-")[1]),
-                private: event.private,
+                isPrivate: event.private,
             };
             dates.add(event.start_ts);
             total.push(entry);
