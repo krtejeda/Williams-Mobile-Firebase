@@ -79,8 +79,8 @@ exports.getDailyMessages = functions.pubsub
   });
 
 exports.getDiningInfo = functions.pubsub
-  .schedule('30 0 * * *') // fetch events daily messages at 12:30am
-  .timeZone('America/New_York')
+  .schedule("30 1 * * *") // fetch dining at 1:30am
+  .timeZone("America/New_York")
   .onRun(async () => {
     let diningInfo = {};
     const promises = [];
@@ -153,6 +153,7 @@ const parseEvents = async (events) => {
         endTime: convertToUnix(
           event.start_ts + ' ' + event.time_formatted.split('-')[1]
         ),
+        isPrivate: event.private === "yes",
       };
       dates.add(event.start_ts);
       total.push(entry);
