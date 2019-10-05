@@ -177,7 +177,7 @@ const parseDailyMessages = async (dailyMessages) => {
   let temp = {};
   for (let category of categories) {
     for (let dailyMessage of dailyMessages[category]) {
-      if (dailyMessage.type !== 'event') {
+      if (dailyMessage.type === 'announcement') {
         let entry = {
           key: dailyMessage.ID.toString(),
           category: dailyMessage.category,
@@ -238,8 +238,6 @@ const parseDining = (data) => {
 const cleanTime = (time) => {
   return time ? time.replace(/\s/g, '') : '';
 };
-
-sortEvents = (a, b) => a.startTime - b.startTime;
 
 const convertDayToUnix = (day) => {
   const TIME_ZONE = '-04:00';
