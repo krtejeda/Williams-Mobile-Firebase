@@ -65,3 +65,9 @@ node_modules/
 .env
 
 .DS_Store
+.idea/.gitignore
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/Williams-Mobile-Firebase.iml
+.idea/inspectionProfiles/Project_Default.xml
