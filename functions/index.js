@@ -46,6 +46,17 @@ exports.getEvents = functions.pubsub
       categories.add(event.category)
     }
 
+    // merge categories with already-seen categories
+    const snapshot = await admin
+      .firestore()
+      .collection('resources')
+      .doc('eventCategories')
+      .get();
+
+    snapshot.data().categories.forEach((category) => {
+      categories.add(category);
+    });
+
     // set the list of event categories
     categories = Array.from(categories);
     categories.sort((a, b) => a.localeCompare(b));
@@ -83,6 +94,17 @@ exports.getDailyMessages = functions.pubsub
     Object.keys(parsedDailyMessages).forEach((key) => {
       console.log(parsedDailyMessages[key])
       categories.add(parsedDailyMessages[key].category);
+    });
+
+    // merge categories with already-seen categories
+    const snapshot = await admin
+      .firestore()
+      .collection('resources')
+      .doc('dailyMessageCategories')
+      .get();
+
+    snapshot.data().categories.forEach((category) => {
+      categories.add(category);
     });
 
     // set the list of daily messages categories
