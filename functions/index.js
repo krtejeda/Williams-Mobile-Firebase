@@ -92,7 +92,6 @@ exports.getDailyMessages = functions.pubsub
 
     let categories = new Set();
     Object.keys(parsedDailyMessages).forEach((key) => {
-      console.log(parsedDailyMessages[key])
       categories.add(parsedDailyMessages[key].category);
     });
 
@@ -116,14 +115,29 @@ exports.getDailyMessages = functions.pubsub
       .doc('dailyMessageCategories')
       .set({categories});
 
-    const today = moment()
-      .tz('America/New_York')
-      .format('YYYY-MM-DD');
-    admin
+    // remove the previous day's messages
+    let query = await admin
       .firestore()
-      .collection('dailyMessages')
-      .doc(today)
-      .set(parsedDailyMessages);
+      .collection('messages')
+      .get();
+    query.forEach((doc) => {
+      let data = doc.data();
+      admin
+        .firestore()
+        .collection('messages')
+        .doc(data.key)
+        .delete();
+    });
+
+    // add the new daily messages
+    Object.keys(parsedDailyMessages).forEach((key) => {
+      const message = parsedDailyMessages[key];
+      admin
+        .firestore()
+        .collection('messages')
+        .doc(message.key)
+        .set(message);
+    })
   });
 
 exports.getDiningInfo = functions.pubsub
