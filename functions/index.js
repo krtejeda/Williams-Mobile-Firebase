@@ -35,6 +35,7 @@ exports.getEvents = functions.pubsub
 
     // Collect recent event list
     let b = new Set();
+    let categories = new Set();
     for (let event of parsedEvents) {
       admin
         .firestore()
@@ -42,7 +43,17 @@ exports.getEvents = functions.pubsub
         .doc(event.key)
         .set(event);
       b.add(event.key);
+      categories.add(event.category)
     }
+
+    // set the list of event categories
+    categories = Array.from(categories);
+    categories.sort((a, b) => a.localeCompare(b));
+    admin
+      .firestore()
+      .collection('resources')
+      .doc('eventCategories')
+      .set({categories});
 
     // Delete old / abandoned events
     let difference = new Set([...a].filter((x) => !b.has(x)));
@@ -67,6 +78,21 @@ exports.getDailyMessages = functions.pubsub
 
     let responseJson = await response.json();
     let parsedDailyMessages = await parseDailyMessages(responseJson);
+
+    let categories = new Set();
+    Object.keys(parsedDailyMessages).forEach((key) => {
+      console.log(parsedDailyMessages[key])
+      categories.add(parsedDailyMessages[key].category);
+    });
+
+    // set the list of daily messages categories
+    categories = Array.from(categories);
+    categories.sort((a, b) => a.localeCompare(b));
+    admin
+      .firestore()
+      .collection('resources')
+      .doc('dailyMessageCategories')
+      .set({categories});
 
     const today = moment()
       .tz('America/New_York')
