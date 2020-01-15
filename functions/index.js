@@ -46,6 +46,17 @@ exports.getEvents = functions.pubsub
       categories.add(event.category)
     }
 
+    // merge categories with already-seen categories
+    const snapshot = await admin
+      .firestore()
+      .collection('resources')
+      .doc('eventCategories')
+      .get();
+
+    snapshot.data().categories.forEach((category) => {
+      categories.add(category);
+    });
+
     // set the list of event categories
     categories = Array.from(categories);
     categories.sort((a, b) => a.localeCompare(b));
@@ -81,8 +92,18 @@ exports.getDailyMessages = functions.pubsub
 
     let categories = new Set();
     Object.keys(parsedDailyMessages).forEach((key) => {
-      console.log(parsedDailyMessages[key])
       categories.add(parsedDailyMessages[key].category);
+    });
+
+    // merge categories with already-seen categories
+    const snapshot = await admin
+      .firestore()
+      .collection('resources')
+      .doc('dailyMessageCategories')
+      .get();
+
+    snapshot.data().categories.forEach((category) => {
+      categories.add(category);
     });
 
     // set the list of daily messages categories
@@ -94,14 +115,29 @@ exports.getDailyMessages = functions.pubsub
       .doc('dailyMessageCategories')
       .set({categories});
 
-    const today = moment()
-      .tz('America/New_York')
-      .format('YYYY-MM-DD');
-    admin
+    // remove the previous day's messages
+    let query = await admin
       .firestore()
-      .collection('dailyMessages')
-      .doc(today)
-      .set(parsedDailyMessages);
+      .collection('messages')
+      .get();
+    query.forEach((doc) => {
+      let data = doc.data();
+      admin
+        .firestore()
+        .collection('messages')
+        .doc(data.key)
+        .delete();
+    });
+
+    // add the new daily messages
+    Object.keys(parsedDailyMessages).forEach((key) => {
+      const message = parsedDailyMessages[key];
+      admin
+        .firestore()
+        .collection('messages')
+        .doc(message.key)
+        .set(message);
+    })
   });
 
 exports.getDiningInfo = functions.pubsub
