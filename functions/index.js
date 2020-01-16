@@ -157,7 +157,7 @@ const parseEvents = async (events) => {
       category: event.category,
       title: he.decode(event.title ? event.title : ''),
       information: he.decode(
-        event['post_content'].trim() +
+        event['content'].trim() +
           (event['website_url']
             ? '\n\n' + wrapLinkHTML(event['website_url'], 'More Information')
             : '') || ''
@@ -202,7 +202,7 @@ const parseDailyMessages = async (dailyMessages) => {
           category: dailyMessage.category,
           title: he.decode(dailyMessage.title || ''),
           information: he.decode(
-            dailyMessage['post_content'].trim() +
+            dailyMessage['content'].trim() +
               (dailyMessage['website_url']
                 ? '\n\n' + wrapLinkHTML(dailyMessage['website_url'], 'More Information')
                 : '') || ''
