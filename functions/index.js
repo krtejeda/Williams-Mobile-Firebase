@@ -43,7 +43,7 @@ exports.getEvents = functions.pubsub
         .doc(event.key)
         .set(event);
       b.add(event.key);
-      categories.add(event.category)
+      categories.add(event.category);
     }
 
     // set the list of event categories
@@ -53,7 +53,7 @@ exports.getEvents = functions.pubsub
       .firestore()
       .collection('resources')
       .doc('eventCategories')
-      .set({categories});
+      .set({ categories });
 
     // Delete old / abandoned events
     let difference = new Set([...a].filter((x) => !b.has(x)));
@@ -81,7 +81,6 @@ exports.getDailyMessages = functions.pubsub
 
     let categories = new Set();
     Object.keys(parsedDailyMessages).forEach((key) => {
-      console.log(parsedDailyMessages[key])
       categories.add(parsedDailyMessages[key].category);
     });
 
@@ -92,7 +91,7 @@ exports.getDailyMessages = functions.pubsub
       .firestore()
       .collection('resources')
       .doc('dailyMessageCategories')
-      .set({categories});
+      .set({ categories });
 
     const today = moment()
       .tz('America/New_York')
@@ -106,7 +105,7 @@ exports.getDailyMessages = functions.pubsub
 
 exports.getDiningInfo = functions.pubsub
   .schedule('29,59 0-23 * * *') // fetch dining a minute before every half hour.
-  .timeZone("America/New_York")
+  .timeZone('America/New_York')
   .onRun(async () => {
     let diningInfo = {};
     const promises = [];
@@ -153,37 +152,30 @@ const parseEvents = async (events) => {
   // Set keeps track of the first event of that day so we can render that event with a date header
   let dates = new Set();
   return events.reduce((total, event) => {
-    if (event.time_formatted.includes('-')) {
-      let entry = {
-        key: event.ID.toString(),
-        category: event.category,
-        title: he.decode(event.title ? event.title : ''),
-        information: he.decode(
-          event['post_content'].trim() +
-            (event['website_url']
-              ? '\n\n' + wrapLinkHTML(event['website_url'])
-              : '') || ''
-        ),
-        location: he.decode(event.venue ? event.venue : ''),
-        headerColor: CategoryColors[event.category]
-          ? CategoryColors[event.category]
-          : CategoryColors['Default'],
-        times: cleanTime(event.time_formatted),
-        room: he.decode(event.venue_room ? event.venue_room : ''),
-        date: event.start_ts,
-        dateUnix: convertDayToUnix(event.start_ts),
-        firstEventToday: !dates.has(event.start_ts),
-        startTime: convertToUnix(
-          event.start_ts + ' ' + event.time_formatted.split('-')[0]
-        ),
-        endTime: convertToUnix(
-          event.start_ts + ' ' + event.time_formatted.split('-')[1]
-        ),
-        isPrivate: event.private === "yes",
-      };
-      dates.add(event.start_ts);
-      total.push(entry);
-    }
+    let entry = {
+      key: event.ID.toString(),
+      category: event.category,
+      title: he.decode(event.title ? event.title : ''),
+      information: he.decode(
+        event['content'].trim() +
+          (event['website_url']
+            ? '\n\n' + wrapLinkHTML(event['website_url'], 'More Information')
+            : '') || ''
+      ),
+      location: he.decode(event.venue ? event.venue : ''),
+      headerColor: CategoryColors[event.category]
+        ? CategoryColors[event.category]
+        : CategoryColors['Default'],
+      times: cleanTime(event.time_formatted),
+      room: he.decode(event.venue_room ? event.venue_room : ''),
+      date: event.start_ts,
+      firstEventToday: !dates.has(event.start_ts),
+      startTime: convertToUnix(event.EventStartDate),
+      endTime: convertToUnix(event.EventEndDate),
+      isPrivate: event.private === 'yes',
+    };
+    dates.add(event.start_ts);
+    total.push(entry);
     return total;
   }, []);
 };
@@ -210,14 +202,13 @@ const parseDailyMessages = async (dailyMessages) => {
           category: dailyMessage.category,
           title: he.decode(dailyMessage.title || ''),
           information: he.decode(
-            dailyMessage['post_content'].trim() +
+            dailyMessage['content'].trim() +
               (dailyMessage['website_url']
-                ? '\n\n' + wrapLinkHTML(dailyMessage['website_url'])
+                ? '\n\n' + wrapLinkHTML(dailyMessage['website_url'], 'More Information')
                 : '') || ''
           ),
           location: he.decode(dailyMessage.venue || ''),
-          headerColor:
-            CategoryColors[dailyMessage.category] || CategoryColors['Default'],
+          headerColor: CategoryColors[dailyMessage.category] || CategoryColors['Default'],
         };
         temp[dailyMessage.ID.toString()] = entry;
       }
@@ -239,8 +230,7 @@ const groupBy = (arr, property) => {
   return arr.reduce((memo, x) => {
     // only allowing ['breakfast', 'brunch', 'lunch', 'dinner'] in the db
     // and 'snack bar' for whitmans'
-    if (property === 'meal' && !meals.includes(x[property].toLowerCase()))
-      return memo;
+    if (property === 'meal' && !meals.includes(x[property].toLowerCase())) return memo;
     // if the course is an empty string, change it to 'entrees'
     if (property === 'course' && !x[property]) x[property] = 'Entrees';
 
@@ -266,20 +256,12 @@ const cleanTime = (time) => {
   return time ? time.replace(/\s/g, '') : '';
 };
 
-const convertDayToUnix = (day) => {
-  const TIME_ZONE = '-04:00';
-  const unix = moment(day + ' ' + TIME_ZONE, 'YYYY-MM-DD Z').valueOf();
-  return unix;
-};
-
 const convertToUnix = (time) => {
-  const TIME_ZONE = '-04:00';
-  const unix = moment(time + ' ' + TIME_ZONE, 'YYYY-MM-DD h:mm a Z').valueOf();
-  return unix;
+  return moment.utc(time).valueOf();
 };
 
-const wrapLinkHTML = (link) => {
-  return `<a href='${link}'>More Information</a>`;
+const wrapLinkHTML = (link, text) => {
+  return `<a href='${link}'>${text}</a>`;
 };
 // Menu ids for each dining location.
 const diningIds = {
